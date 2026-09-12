@@ -65,124 +65,9 @@ BG_COLOR_HEX = "#0c0e0f"
 BG_COLOR     = (12, 14, 15)
 
 
-# ============================================
-# GitHub stats (same as original)
-# ============================================
-
-def get_total_repos(username):
-    try:
-        response = requests.get(f"https://api.github.com/users/{username}")
-        if response.status_code == 200:
-            return response.json().get("public_repos", 0)
-    except Exception:
-        pass
-    return None
-
-
-def get_total_stars(username):
-    """
-    Sum stargazerCount across all owned repos ourselves.
-    gifos.utils.fetch_github_stats() has a pagination bug — it reassigns
-    (not accumulates) total_stargazers per page, so it silently reports 0
-    whenever GitHub's GraphQL API returns the results across more than one
-    page. Bypass it entirely for this one field.
-    """
-    token = os.environ.get("GITHUB_TOKEN")
-    headers = {"Authorization": f"bearer {token}"} if token else {}
-    total = 0
-    page = 1
-    try:
-        while True:
-            resp = requests.get(
-                f"https://api.github.com/users/{username}/repos",
-                params={"per_page": 100, "page": page, "type": "owner"},
-                headers=headers,
-            )
-            if resp.status_code != 200:
-                break
-            repos = resp.json()
-            if not repos:
-                break
-            total += sum(r.get("stargazers_count", 0) for r in repos)
-            if len(repos) < 100:
-                break
-            page += 1
-    except Exception:
-        return None
-    return total
-
-
-def get_top_languages(username, exclude=("Jupyter Notebook",), top_n=3):
-    """
-    Recompute the top-languages breakdown ourselves, excluding notebook files.
-    gifos's own languages_sorted counts every .ipynb as "Jupyter Notebook" bytes,
-    which swamps everything else (86%+ here) and hides the actual language mix.
-    A single GraphQL call, same shape as GitHub's own byte-size accounting.
-    """
-    token = os.environ.get("GITHUB_TOKEN")
-    headers = {"Authorization": f"bearer {token}"} if token else {}
-    query = """
-    query($login: String!, $after: String) {
-      user(login: $login) {
-        repositories(first: 100, after: $after, ownerAffiliations: OWNER, isFork: false) {
-          nodes {
-            languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
-              edges { size node { name } }
-            }
-          }
-          pageInfo { hasNextPage endCursor }
-        }
-      }
-    }
-    """
-    langs = {}
-    after = None
-    try:
-        while True:
-            resp = requests.post(
-                "https://api.github.com/graphql",
-                json={"query": query, "variables": {"login": username, "after": after}},
-                headers=headers,
-            )
-            if resp.status_code != 200:
-                break
-            data = resp.json().get("data", {}).get("user", {}).get("repositories")
-            if not data:
-                break
-            for repo in data["nodes"]:
-                for edge in repo["languages"]["edges"]:
-                    name = edge["node"]["name"]
-                    if name in exclude:
-                        continue
-                    langs[name] = langs.get(name, 0) + edge["size"]
-            if not data["pageInfo"]["hasNextPage"]:
-                break
-            after = data["pageInfo"]["endCursor"]
-    except Exception:
-        return None
-
-    total = sum(langs.values())
-    if not total:
-        return None
-    ranked = sorted(langs.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
-    return [(name, round(size / total * 100, 1)) for name, size in ranked]
-
-
-try:
-    github_stats = gifos.utils.fetch_github_stats(user_name=USERNAME)
-    has_stats = github_stats is not None
-    if not has_stats:
-        print("Warning: Could not fetch GitHub stats")
-        print("Configure GITHUB_TOKEN in .env file")
-except (Exception, SystemExit) as e:
-    print(f"Warning: Error fetching GitHub stats: {e}")
-    print("Using example data...")
-    has_stats = False
-    github_stats = None
-
-total_repos = get_total_repos(USERNAME)
-total_stars = get_total_stars(USERNAME)
-top_langs = get_top_languages(USERNAME)
+# GitHub Stats screen (and the get_total_repos/get_total_stars/get_top_languages
+# helpers + gifos.utils.fetch_github_stats call that fed it) was removed
+# entirely — it looked bad and added an unnecessary GitHub API round trip.
 
 
 # ============================================
@@ -349,84 +234,30 @@ def post_process_frames(base_canvas, chrome, frames_dir="./frames"):
 t = gifos.Terminal(width=WIN_W, height=450, xpad=10, ypad=10)
 t.set_prompt(f"\x1b[91m{USERNAME}\x1b[0m@\x1b[93mgithub\x1b[0m ~> ")
 
-# gifos_settings.toml sets fps=15 (not the 20 assumed elsewhere in this file's
-# history) — 150 frames is the real "10 seconds" the pacing calls for.
-HOLD_FRAMES = 150       # publications — fewer of them, worth lingering on
-HACKATHON_HOLD = 60     # 4s — 17 screens at 10s each was too slow to sit through
+# gifos_settings.toml sets fps=15. "Lightning fast" pacing: hold just long
+# enough to read one line, then move — no idle padding once typing/text has
+# landed. GitHub Stats screen removed entirely (not just hidden) per feedback
+# that it looked bad.
+HACKATHON_HOLD = 18   # ~1.2s at 15fps
+PUB_HOLD = 45         # ~3s — 5 items, still worth a beat longer than a hackathon line
+TICK = 1              # frame gap between successive gen_text lines on one screen
 
 # -- ASCII boot banner --
 t.gen_text("+--------------------------------------+", row_num=1)
 t.gen_text("|          VINAYAK BHATIA               |", row_num=2)
 t.gen_text("|  SDE @ Media.net - AI/ML Engineer     |", row_num=3)
 t.gen_text("+--------------------------------------+", row_num=4)
-t.clone_frame(40)
-t.clear_frame()
-
-# -- Boot sequence --
-t.gen_text("Initializing terminal...", row_num=1)
-t.clone_frame(5)
-t.gen_text("\x1b[32m[OK]\x1b[0m System ready", row_num=2)
-t.clone_frame(10)
-
-# -- Stats command --
-t.gen_prompt(row_num=3)
-t.gen_typing_text("github-stats --user " + USERNAME, row_num=3, contin=True, speed=1)
-t.clone_frame(5)
-
-t.gen_text("", row_num=4)
-t.gen_text(f"\x1b[96m=== GitHub Stats for {USERNAME} ===\x1b[0m", row_num=5)
-t.clone_frame(3)
-
-if has_stats:
-    repos_count = total_repos if total_repos else github_stats.total_repo_contributions
-    # Issues/Rank dropped on purpose: Issues sits at 0 (nothing to show), and
-    # the gifos rank formula is tuned for OSS-maintainer activity (PR/issue/
-    # review volume) — it grades this hackathon/research-heavy profile as a
-    # weak "C+", which is misleading rather than informative. Repos/Commits/
-    # Stars/Top-Langs are the metrics that actually read well here.
-    stats_lines = [
-        f"\x1b[93mName:\x1b[0m        {github_stats.account_name or USERNAME}",
-        f"\x1b[93mFollowers:\x1b[0m   {github_stats.total_followers}",
-        f"\x1b[93mStars:\x1b[0m       {total_stars if total_stars is not None else github_stats.total_stargazers}",
-        f"\x1b[93mCommits:\x1b[0m     {github_stats.total_commits_last_year} (last year)",
-        f"\x1b[93mPRs:\x1b[0m         {github_stats.total_pull_requests_made}",
-        f"\x1b[93mRepos:\x1b[0m       {repos_count}",
-    ]
-    langs_for_display = top_langs or github_stats.languages_sorted[:3]
-    if langs_for_display:
-        langs_str = ", ".join([f"{lang[0]} ({lang[1]}%)" for lang in langs_for_display[:3]])
-        stats_lines.append(f"\x1b[93mTop Langs:\x1b[0m   {langs_str}")
-else:
-    stats_lines = [
-        f"\x1b[93mName:\x1b[0m        {USERNAME}",
-        "\x1b[93mFollowers:\x1b[0m   --",
-        "\x1b[93mStars:\x1b[0m       --",
-        "\x1b[93mCommits:\x1b[0m     -- (configure GITHUB_TOKEN)",
-        "\x1b[93mPRs:\x1b[0m         --",
-        "\x1b[93mRepos:\x1b[0m       --",
-    ]
-
-for i, line in enumerate(stats_lines):
-    t.gen_text(line, row_num=6 + i)
-    t.clone_frame(6)
-
 t.clone_frame(15)
-t.gen_text("\x1b[96m================================\x1b[0m", row_num=6 + len(stats_lines))
-t.clone_frame(35)  # hold — give the reader time on this screen
-
-# -- Clear + Hackathons --
-t.gen_prompt(row_num=7 + len(stats_lines))
-t.gen_typing_text("clear", row_num=7 + len(stats_lines), contin=True, speed=1)
-t.clone_frame(5)
 t.clear_frame()
 
+# -- Hackathons --
 t.gen_prompt(row_num=1)
 t.gen_typing_text("cat hackathons.txt", row_num=1, contin=True, speed=1)
-t.clone_frame(6)
+t.clone_frame(TICK)
 
 t.gen_text("", row_num=2)
 t.gen_text("\x1b[96m=== 17 Hackathons Won ===\x1b[0m", row_num=3)
-t.clone_frame(4)
+t.clone_frame(TICK)
 
 # One entry: (name, venue/level, result). Exactly 17 — matches the "17x Hackathon
 # Winner" headline. Each gets its own full screen + a 10s hold (HOLD_FRAMES).
@@ -469,16 +300,16 @@ t.clear_frame()
 pub_prompt_row = 1
 t.gen_prompt(row_num=pub_prompt_row)
 t.gen_typing_text("clear", row_num=pub_prompt_row, contin=True, speed=1)
-t.clone_frame(5)
+t.clone_frame(TICK)
 t.clear_frame()
 
 t.gen_prompt(row_num=1)
 t.gen_typing_text("cat publications.txt", row_num=1, contin=True, speed=1)
-t.clone_frame(6)
+t.clone_frame(TICK)
 
 t.gen_text("", row_num=2)
 t.gen_text("\x1b[96m=== Publications (5) ===\x1b[0m", row_num=3)
-t.clone_frame(HOLD_FRAMES)
+t.clone_frame(HACKATHON_HOLD)
 t.clear_frame()
 
 # Each entry: (title lines, venue, status). One screen per publication, 10s hold.
@@ -520,7 +351,7 @@ for i, (title_lines, venue, status) in enumerate(publications, start=1):
         row += 1
     t.gen_text(f"\x1b[94m{venue}\x1b[0m", row_num=row)
     t.gen_text(f"\x1b[93m{status}\x1b[0m", row_num=row + 1)
-    t.clone_frame(HOLD_FRAMES)
+    t.clone_frame(PUB_HOLD)
     if i < len(publications):
         t.clear_frame()
 
@@ -530,16 +361,16 @@ t.clear_frame()
 stack_prompt_row = 1
 t.gen_prompt(row_num=stack_prompt_row)
 t.gen_typing_text("clear", row_num=stack_prompt_row, contin=True, speed=1)
-t.clone_frame(5)
+t.clone_frame(TICK)
 t.clear_frame()
 
 t.gen_prompt(row_num=1)
 t.gen_typing_text("cat stack.txt", row_num=1, contin=True, speed=1)
-t.clone_frame(6)
+t.clone_frame(TICK)
 
 t.gen_text("", row_num=2)
 t.gen_text("\x1b[96m=== Tech Stack ===\x1b[0m", row_num=3)
-t.clone_frame(4)
+t.clone_frame(TICK)
 
 skills = [
     ("\x1b[94mBackend:\x1b[0m      ", "Spring Boot, FastAPI, Django, Node.js"),
@@ -555,11 +386,11 @@ skills = [
 
 for i, (label, value) in enumerate(skills):
     t.gen_text(f"{label}{value}", row_num=4 + i)
-    t.clone_frame(6)
+    t.clone_frame(TICK)
 
-t.clone_frame(15)
+t.clone_frame(TICK)
 t.gen_text("\x1b[96m==================\x1b[0m", row_num=4 + len(skills))
-t.clone_frame(35)  # hold — give the reader time on this screen
+t.clone_frame(HACKATHON_HOLD)
 
 # -- Final message --
 final_row = 5 + len(skills)
@@ -567,9 +398,9 @@ t.gen_prompt(row_num=final_row)
 t.gen_typing_text(
     "echo 'Thanks for visiting my profile!'", row_num=final_row, contin=True, speed=1
 )
-t.clone_frame(6)
+t.clone_frame(TICK)
 t.gen_text("\x1b[92mThanks for visiting my profile!\x1b[0m", row_num=final_row + 1)
-t.clone_frame(45)
+t.clone_frame(20)
 
 # ============================================
 # Post-process frames → Liquid Glass effect
