@@ -144,9 +144,11 @@ def prepare_glass_layers(wallpaper_path):
     wallpaper_with_shadow = _blend_overlay(wallpaper_bg, shadow)
 
     # ---- Frosted glass — title bar ----
+    # Darker tint (not pure black) so white terminal text reads clearly
+    # against the blue wallpaper — was a light-white tint, too washed out.
     title_region = wallpaper_bg.crop((WIN_X, WIN_Y, WIN_X + WIN_W, WIN_Y + TITLE_H))
     frosted_title = title_region.filter(ImageFilter.GaussianBlur(radius=5))
-    title_overlay = Image.new("RGBA", frosted_title.size, (255, 255, 255, 30))
+    title_overlay = Image.new("RGBA", frosted_title.size, (10, 12, 18, 150))
     frosted_title = _blend_overlay(frosted_title, title_overlay)
 
     # ---- Frosted glass — content area ----
@@ -154,7 +156,7 @@ def prepare_glass_layers(wallpaper_path):
         (TERMINAL_X, TERMINAL_Y, TERMINAL_X + WIN_W, TERMINAL_Y + 450)
     )
     frosted_content = content_region.filter(ImageFilter.GaussianBlur(radius=4))
-    content_overlay = Image.new("RGBA", frosted_content.size, (255, 255, 255, 22))
+    content_overlay = Image.new("RGBA", frosted_content.size, (8, 10, 16, 165))
     frosted_content = _blend_overlay(frosted_content, content_overlay)
 
     # ---- Assemble frosted window (with rounded corners) ----
@@ -300,43 +302,110 @@ else:
 
 for i, line in enumerate(stats_lines):
     t.gen_text(line, row_num=6 + i)
-    t.clone_frame(3)
+    t.clone_frame(6)
 
-t.clone_frame(10)
-t.gen_text("\x1b[96m================================\x1b[0m", row_num=6 + len(stats_lines))
 t.clone_frame(15)
+t.gen_text("\x1b[96m================================\x1b[0m", row_num=6 + len(stats_lines))
+t.clone_frame(35)  # hold — give the reader time on this screen
 
-# -- Clear + Skills --
+# -- Clear + Hackathons --
 t.gen_prompt(row_num=7 + len(stats_lines))
 t.gen_typing_text("clear", row_num=7 + len(stats_lines), contin=True, speed=1)
 t.clone_frame(5)
 t.clear_frame()
 
 t.gen_prompt(row_num=1)
-t.gen_typing_text("cat skills.txt", row_num=1, contin=True, speed=1)
+t.gen_typing_text("cat hackathons.txt", row_num=1, contin=True, speed=1)
+t.clone_frame(6)
+
+t.gen_text("", row_num=2)
+t.gen_text("\x1b[96m=== Hackathons ===\x1b[0m", row_num=3)
+t.clone_frame(4)
+
+hackathons = [
+    ("\x1b[93mTotal Won:\x1b[0m    ", "17"),
+    ("\x1b[93mWorld Rank:\x1b[0m   ", "#6 — Zelestra x AWS ML Ascend"),
+    ("\x1b[93mAmazon ML:\x1b[0m    ", "AIR 60 (2025)"),
+    ("\x1b[93mNotable:\x1b[0m      ", "Media.net AiVolution — 1st"),
+    ("", "Google Cloud Agentic AI Day — 1st"),
+    ("", "Genathon 2.0, IIIT Nagpur — 1st"),
+    ("", "LogiTHON, IIT Bombay — Runner-up"),
+]
+
+for i, (label, value) in enumerate(hackathons):
+    t.gen_text(f"{label}{value}", row_num=4 + i)
+    t.clone_frame(6)
+
+t.clone_frame(15)
+t.gen_text("\x1b[96m==================\x1b[0m", row_num=4 + len(hackathons))
+t.clone_frame(35)  # hold — give the reader time on this screen
+
+# -- Clear + Publications --
+pub_prompt_row = 5 + len(hackathons)
+t.gen_prompt(row_num=pub_prompt_row)
+t.gen_typing_text("clear", row_num=pub_prompt_row, contin=True, speed=1)
 t.clone_frame(5)
+t.clear_frame()
+
+t.gen_prompt(row_num=1)
+t.gen_typing_text("cat publications.txt", row_num=1, contin=True, speed=1)
+t.clone_frame(6)
+
+t.gen_text("", row_num=2)
+t.gen_text("\x1b[96m=== Publications ===\x1b[0m", row_num=3)
+t.clone_frame(4)
+
+publications = [
+    ("\x1b[93mJournal:\x1b[0m   ", "Intl. Journal of Remote Sensing (T&F)"),
+    ("\x1b[93mQuartile:\x1b[0m  ", "Q1"),
+    ("\x1b[93mStatus:\x1b[0m    ", "Accepted — Sep 2026"),
+    ("\x1b[93mTitle:\x1b[0m     ", "Hybrid Quantum-Classical Framework for"),
+    ("", "Hyperspectral Image Classification — QAOA"),
+    ("", "Optimised Band Selection w/ 3D-CNNs"),
+]
+
+for i, (label, value) in enumerate(publications):
+    t.gen_text(f"{label}{value}", row_num=4 + i)
+    t.clone_frame(6)
+
+t.clone_frame(15)
+t.gen_text("\x1b[96m=====================\x1b[0m", row_num=4 + len(publications))
+t.clone_frame(35)  # hold — give the reader time on this screen
+
+# -- Clear + Tech Stack --
+stack_prompt_row = 5 + len(publications)
+t.gen_prompt(row_num=stack_prompt_row)
+t.gen_typing_text("clear", row_num=stack_prompt_row, contin=True, speed=1)
+t.clone_frame(5)
+t.clear_frame()
+
+t.gen_prompt(row_num=1)
+t.gen_typing_text("cat stack.txt", row_num=1, contin=True, speed=1)
+t.clone_frame(6)
 
 t.gen_text("", row_num=2)
 t.gen_text("\x1b[96m=== Tech Stack ===\x1b[0m", row_num=3)
-t.clone_frame(3)
+t.clone_frame(4)
 
 skills = [
-    ("\x1b[94mCloud:\x1b[0m       ", "AWS, GCP, OCI, Cloudflare"),
-    ("\x1b[94mDevOps:\x1b[0m      ", "Terraform, Kubernetes, Docker, Git"),
-    ("\x1b[94mCI/CD:\x1b[0m       ", "GitLab, GitHub Actions"),
-    ("\x1b[94mMonitoring:\x1b[0m  ", "Grafana, Prometheus, Jaeger, Loki"),
-    ("\x1b[94mTools:\x1b[0m       ", "Postman, RabbitMQ, MongoDB"),
-    ("\x1b[94mOS:\x1b[0m          ", "macOS, Debian"),
-    ("\x1b[94mLanguages:\x1b[0m   ", "Java, Python"),
+    ("\x1b[94mBackend:\x1b[0m      ", "Spring Boot, FastAPI, Django, Node.js"),
+    ("\x1b[94mCloud:\x1b[0m        ", "AWS, GCP, Azure"),
+    ("\x1b[94mContainers:\x1b[0m   ", "Docker, Kubernetes, Helm"),
+    ("\x1b[94mIaC / GitOps:\x1b[0m ", "Terraform, FluxCD, ArgoCD"),
+    ("\x1b[94mCI/CD:\x1b[0m        ", "Jenkins, GitHub Actions, GitLab CI"),
+    ("\x1b[94mMessaging:\x1b[0m    ", "Kafka, RabbitMQ"),
+    ("\x1b[94mObservability:\x1b[0m", "Grafana, Prometheus, ELK"),
+    ("\x1b[94mDatabases:\x1b[0m    ", "PostgreSQL, MongoDB, Redis"),
+    ("\x1b[94mLanguages:\x1b[0m    ", "Java, Python, Go"),
 ]
 
 for i, (label, value) in enumerate(skills):
     t.gen_text(f"{label}{value}", row_num=4 + i)
-    t.clone_frame(2)
+    t.clone_frame(6)
 
-t.clone_frame(10)
+t.clone_frame(15)
 t.gen_text("\x1b[96m==================\x1b[0m", row_num=4 + len(skills))
-t.clone_frame(5)
+t.clone_frame(35)  # hold — give the reader time on this screen
 
 # -- Final message --
 final_row = 5 + len(skills)
@@ -344,9 +413,9 @@ t.gen_prompt(row_num=final_row)
 t.gen_typing_text(
     "echo 'Thanks for visiting my profile!'", row_num=final_row, contin=True, speed=1
 )
-t.clone_frame(5)
+t.clone_frame(6)
 t.gen_text("\x1b[92mThanks for visiting my profile!\x1b[0m", row_num=final_row + 1)
-t.clone_frame(40)
+t.clone_frame(45)
 
 # ============================================
 # Post-process frames → Liquid Glass effect
