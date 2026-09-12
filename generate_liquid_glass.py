@@ -112,6 +112,62 @@ def get_total_stars(username):
     return total
 
 
+def get_top_languages(username, exclude=("Jupyter Notebook",), top_n=3):
+    """
+    Recompute the top-languages breakdown ourselves, excluding notebook files.
+    gifos's own languages_sorted counts every .ipynb as "Jupyter Notebook" bytes,
+    which swamps everything else (86%+ here) and hides the actual language mix.
+    A single GraphQL call, same shape as GitHub's own byte-size accounting.
+    """
+    token = os.environ.get("GITHUB_TOKEN")
+    headers = {"Authorization": f"bearer {token}"} if token else {}
+    query = """
+    query($login: String!, $after: String) {
+      user(login: $login) {
+        repositories(first: 100, after: $after, ownerAffiliations: OWNER, isFork: false) {
+          nodes {
+            languages(first: 10, orderBy: {field: SIZE, direction: DESC}) {
+              edges { size node { name } }
+            }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }
+    """
+    langs = {}
+    after = None
+    try:
+        while True:
+            resp = requests.post(
+                "https://api.github.com/graphql",
+                json={"query": query, "variables": {"login": username, "after": after}},
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                break
+            data = resp.json().get("data", {}).get("user", {}).get("repositories")
+            if not data:
+                break
+            for repo in data["nodes"]:
+                for edge in repo["languages"]["edges"]:
+                    name = edge["node"]["name"]
+                    if name in exclude:
+                        continue
+                    langs[name] = langs.get(name, 0) + edge["size"]
+            if not data["pageInfo"]["hasNextPage"]:
+                break
+            after = data["pageInfo"]["endCursor"]
+    except Exception:
+        return None
+
+    total = sum(langs.values())
+    if not total:
+        return None
+    ranked = sorted(langs.items(), key=lambda kv: kv[1], reverse=True)[:top_n]
+    return [(name, round(size / total * 100, 1)) for name, size in ranked]
+
+
 try:
     github_stats = gifos.utils.fetch_github_stats(user_name=USERNAME)
     has_stats = github_stats is not None
@@ -126,6 +182,7 @@ except (Exception, SystemExit) as e:
 
 total_repos = get_total_repos(USERNAME)
 total_stars = get_total_stars(USERNAME)
+top_langs = get_top_languages(USERNAME)
 
 
 # ============================================
@@ -322,19 +379,22 @@ t.clone_frame(3)
 
 if has_stats:
     repos_count = total_repos if total_repos else github_stats.total_repo_contributions
+    # Issues/Rank dropped on purpose: Issues sits at 0 (nothing to show), and
+    # the gifos rank formula is tuned for OSS-maintainer activity (PR/issue/
+    # review volume) — it grades this hackathon/research-heavy profile as a
+    # weak "C+", which is misleading rather than informative. Repos/Commits/
+    # Stars/Top-Langs are the metrics that actually read well here.
     stats_lines = [
         f"\x1b[93mName:\x1b[0m        {github_stats.account_name or USERNAME}",
         f"\x1b[93mFollowers:\x1b[0m   {github_stats.total_followers}",
         f"\x1b[93mStars:\x1b[0m       {total_stars if total_stars is not None else github_stats.total_stargazers}",
         f"\x1b[93mCommits:\x1b[0m     {github_stats.total_commits_last_year} (last year)",
         f"\x1b[93mPRs:\x1b[0m         {github_stats.total_pull_requests_made}",
-        f"\x1b[93mIssues:\x1b[0m      {github_stats.total_issues}",
         f"\x1b[93mRepos:\x1b[0m       {repos_count}",
-        f"\x1b[93mRank:\x1b[0m        {github_stats.user_rank.level} ({github_stats.user_rank.percentile:.1f}%)",
     ]
-    if github_stats.languages_sorted:
-        top_langs = github_stats.languages_sorted[:3]
-        langs_str = ", ".join([f"{lang[0]} ({lang[1]}%)" for lang in top_langs])
+    langs_for_display = top_langs or github_stats.languages_sorted[:3]
+    if langs_for_display:
+        langs_str = ", ".join([f"{lang[0]} ({lang[1]}%)" for lang in langs_for_display[:3]])
         stats_lines.append(f"\x1b[93mTop Langs:\x1b[0m   {langs_str}")
 else:
     stats_lines = [
@@ -343,9 +403,7 @@ else:
         "\x1b[93mStars:\x1b[0m       --",
         "\x1b[93mCommits:\x1b[0m     -- (configure GITHUB_TOKEN)",
         "\x1b[93mPRs:\x1b[0m         --",
-        "\x1b[93mIssues:\x1b[0m      --",
         "\x1b[93mRepos:\x1b[0m       --",
-        "\x1b[93mRank:\x1b[0m        --",
     ]
 
 for i, line in enumerate(stats_lines):
