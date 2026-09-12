@@ -78,6 +78,40 @@ def get_total_repos(username):
         pass
     return None
 
+
+def get_total_stars(username):
+    """
+    Sum stargazerCount across all owned repos ourselves.
+    gifos.utils.fetch_github_stats() has a pagination bug — it reassigns
+    (not accumulates) total_stargazers per page, so it silently reports 0
+    whenever GitHub's GraphQL API returns the results across more than one
+    page. Bypass it entirely for this one field.
+    """
+    token = os.environ.get("GITHUB_TOKEN")
+    headers = {"Authorization": f"bearer {token}"} if token else {}
+    total = 0
+    page = 1
+    try:
+        while True:
+            resp = requests.get(
+                f"https://api.github.com/users/{username}/repos",
+                params={"per_page": 100, "page": page, "type": "owner"},
+                headers=headers,
+            )
+            if resp.status_code != 200:
+                break
+            repos = resp.json()
+            if not repos:
+                break
+            total += sum(r.get("stargazers_count", 0) for r in repos)
+            if len(repos) < 100:
+                break
+            page += 1
+    except Exception:
+        return None
+    return total
+
+
 try:
     github_stats = gifos.utils.fetch_github_stats(user_name=USERNAME)
     has_stats = github_stats is not None
@@ -91,6 +125,7 @@ except (Exception, SystemExit) as e:
     github_stats = None
 
 total_repos = get_total_repos(USERNAME)
+total_stars = get_total_stars(USERNAME)
 
 
 # ============================================
@@ -257,6 +292,18 @@ def post_process_frames(base_canvas, chrome, frames_dir="./frames"):
 t = gifos.Terminal(width=WIN_W, height=450, xpad=10, ypad=10)
 t.set_prompt(f"\x1b[91m{USERNAME}\x1b[0m@\x1b[93mgithub\x1b[0m ~> ")
 
+# gifos_settings.toml sets fps=15 (not the 20 assumed elsewhere in this file's
+# history) — HOLD_FRAMES=150 is the real "10 seconds" the pacing calls for.
+HOLD_FRAMES = 150
+
+# -- ASCII boot banner --
+t.gen_text("+--------------------------------------+", row_num=1)
+t.gen_text("|          VINAYAK BHATIA               |", row_num=2)
+t.gen_text("|  SDE @ Media.net - AI/ML Engineer     |", row_num=3)
+t.gen_text("+--------------------------------------+", row_num=4)
+t.clone_frame(40)
+t.clear_frame()
+
 # -- Boot sequence --
 t.gen_text("Initializing terminal...", row_num=1)
 t.clone_frame(5)
@@ -277,7 +324,7 @@ if has_stats:
     stats_lines = [
         f"\x1b[93mName:\x1b[0m        {github_stats.account_name or USERNAME}",
         f"\x1b[93mFollowers:\x1b[0m   {github_stats.total_followers}",
-        f"\x1b[93mStars:\x1b[0m       {github_stats.total_stargazers}",
+        f"\x1b[93mStars:\x1b[0m       {total_stars if total_stars is not None else github_stats.total_stargazers}",
         f"\x1b[93mCommits:\x1b[0m     {github_stats.total_commits_last_year} (last year)",
         f"\x1b[93mPRs:\x1b[0m         {github_stats.total_pull_requests_made}",
         f"\x1b[93mIssues:\x1b[0m      {github_stats.total_issues}",
@@ -323,9 +370,7 @@ t.gen_text("\x1b[96m=== 17 Hackathons Won ===\x1b[0m", row_num=3)
 t.clone_frame(4)
 
 # One entry: (name, venue/level, result). Exactly 17 — matches the "17x Hackathon
-# Winner" headline. Each gets its own full screen + a 10s hold (200 frames @ 20fps).
-HOLD_FRAMES = 200  # gifos default fps is 20 -> 200 frames = 10s
-
+# Winner" headline. Each gets its own full screen + a 10s hold (HOLD_FRAMES).
 hackathons = [
     ("AiVolution Hackathon 2025", "Media.net - Corporate", "1st Place"),
     ("Google Cloud Agentic AI Day", "Hack2skill - Open", "Winner"),
@@ -373,28 +418,57 @@ t.gen_typing_text("cat publications.txt", row_num=1, contin=True, speed=1)
 t.clone_frame(6)
 
 t.gen_text("", row_num=2)
-t.gen_text("\x1b[96m=== Publications ===\x1b[0m", row_num=3)
-t.clone_frame(4)
+t.gen_text("\x1b[96m=== Publications (5) ===\x1b[0m", row_num=3)
+t.clone_frame(HOLD_FRAMES)
+t.clear_frame()
 
+# Each entry: (title lines, venue, status). One screen per publication, 10s hold.
 publications = [
-    ("\x1b[93mJournal:\x1b[0m   ", "Intl. Journal of Remote Sensing (T&F)"),
-    ("\x1b[93mQuartile:\x1b[0m  ", "Q1"),
-    ("\x1b[93mStatus:\x1b[0m    ", "Accepted - Sep 2026"),
-    ("\x1b[93mTitle:\x1b[0m     ", "Hybrid Quantum-Classical Framework for"),
-    ("", "Hyperspectral Image Classification - QAOA"),
-    ("", "Optimised Band Selection w/ 3D-CNNs"),
+    (
+        ["Hybrid Quantum-Classical Framework for", "Hyperspectral Image Classification:",
+         "QAOA-Optimised Band Selection w/ 3D-CNNs"],
+        "Intl. Journal of Remote Sensing (Taylor & Francis) - Q1",
+        "Accepted - Sep 2026",
+    ),
+    (
+        ["DualScope-LSTM: Adaptive Dual-Branch", "Modeling for Cloud Resource Forecasting"],
+        "IEEE ISCMI 2025 + T&F Special Issue - Q1",
+        "Published (IEEE) / Accepted (Q1 Journal)",
+    ),
+    (
+        ["Saves: A Spatio-Temporal Attention-Based", "Approach for Video Surveillance"],
+        "IEEE Intl. Conf. on Image Processing Workshops (ICIPW) 2025",
+        "Published",
+    ),
+    (
+        ["VehicleVision Transatron for Fine-Grained", "Vehicle Classification"],
+        "TIPCE Conference, IIT Roorkee 2025",
+        "Published",
+    ),
+    (
+        ["CropNet"],
+        "NeurIPS 2026",
+        "Submitted",
+    ),
 ]
+assert len(publications) == 5
 
-for i, (label, value) in enumerate(publications):
-    t.gen_text(f"{label}{value}", row_num=4 + i)
-    t.clone_frame(6)
+for i, (title_lines, venue, status) in enumerate(publications, start=1):
+    t.gen_text(f"\x1b[96m[{i}/5]\x1b[0m", row_num=1)
+    row = 2
+    for line in title_lines:
+        t.gen_text(f"\x1b[97m{line}\x1b[0m", row_num=row)
+        row += 1
+    t.gen_text(f"\x1b[94m{venue}\x1b[0m", row_num=row)
+    t.gen_text(f"\x1b[93m{status}\x1b[0m", row_num=row + 1)
+    t.clone_frame(HOLD_FRAMES)
+    if i < len(publications):
+        t.clear_frame()
 
-t.clone_frame(15)
-t.gen_text("\x1b[96m=====================\x1b[0m", row_num=4 + len(publications))
-t.clone_frame(HOLD_FRAMES)  # 10s hold — same as each hackathon screen
+t.clear_frame()
 
 # -- Clear + Tech Stack --
-stack_prompt_row = 5 + len(publications)
+stack_prompt_row = 1
 t.gen_prompt(row_num=stack_prompt_row)
 t.gen_typing_text("clear", row_num=stack_prompt_row, contin=True, speed=1)
 t.clone_frame(5)
