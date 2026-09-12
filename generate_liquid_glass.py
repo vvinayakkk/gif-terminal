@@ -324,12 +324,12 @@ t.clone_frame(4)
 
 hackathons = [
     ("\x1b[93mTotal Won:\x1b[0m    ", "17"),
-    ("\x1b[93mWorld Rank:\x1b[0m   ", "#6 — Zelestra x AWS ML Ascend"),
+    ("\x1b[93mWorld Rank:\x1b[0m   ", "#6 - Zelestra x AWS ML Ascend"),
     ("\x1b[93mAmazon ML:\x1b[0m    ", "AIR 60 (2025)"),
-    ("\x1b[93mNotable:\x1b[0m      ", "Media.net AiVolution — 1st"),
-    ("", "Google Cloud Agentic AI Day — 1st"),
-    ("", "Genathon 2.0, IIIT Nagpur — 1st"),
-    ("", "LogiTHON, IIT Bombay — Runner-up"),
+    ("\x1b[93mNotable:\x1b[0m      ", "Media.net AiVolution - 1st"),
+    ("", "Google Cloud Agentic AI Day - 1st"),
+    ("", "Genathon 2.0, IIIT Nagpur - 1st"),
+    ("", "LogiTHON, IIT Bombay - Runner-up"),
 ]
 
 for i, (label, value) in enumerate(hackathons):
@@ -358,9 +358,9 @@ t.clone_frame(4)
 publications = [
     ("\x1b[93mJournal:\x1b[0m   ", "Intl. Journal of Remote Sensing (T&F)"),
     ("\x1b[93mQuartile:\x1b[0m  ", "Q1"),
-    ("\x1b[93mStatus:\x1b[0m    ", "Accepted — Sep 2026"),
+    ("\x1b[93mStatus:\x1b[0m    ", "Accepted - Sep 2026"),
     ("\x1b[93mTitle:\x1b[0m     ", "Hybrid Quantum-Classical Framework for"),
-    ("", "Hyperspectral Image Classification — QAOA"),
+    ("", "Hyperspectral Image Classification - QAOA"),
     ("", "Optimised Band Selection w/ 3D-CNNs"),
 ]
 
