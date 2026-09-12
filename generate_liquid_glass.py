@@ -319,29 +319,50 @@ t.gen_typing_text("cat hackathons.txt", row_num=1, contin=True, speed=1)
 t.clone_frame(6)
 
 t.gen_text("", row_num=2)
-t.gen_text("\x1b[96m=== Hackathons ===\x1b[0m", row_num=3)
+t.gen_text("\x1b[96m=== 17 Hackathons Won ===\x1b[0m", row_num=3)
 t.clone_frame(4)
 
+# One entry: (name, venue/level, result). Exactly 17 — matches the "17x Hackathon
+# Winner" headline. Each gets its own full screen + a 10s hold (200 frames @ 20fps).
+HOLD_FRAMES = 200  # gifos default fps is 20 -> 200 frames = 10s
+
 hackathons = [
-    ("\x1b[93mTotal Won:\x1b[0m    ", "17"),
-    ("\x1b[93mWorld Rank:\x1b[0m   ", "#6 - Zelestra x AWS ML Ascend"),
-    ("\x1b[93mAmazon ML:\x1b[0m    ", "AIR 60 (2025)"),
-    ("\x1b[93mNotable:\x1b[0m      ", "Media.net AiVolution - 1st"),
-    ("", "Google Cloud Agentic AI Day - 1st"),
-    ("", "Genathon 2.0, IIIT Nagpur - 1st"),
-    ("", "LogiTHON, IIT Bombay - Runner-up"),
+    ("AiVolution Hackathon 2025", "Media.net - Corporate", "1st Place"),
+    ("Google Cloud Agentic AI Day", "Hack2skill - Open", "Winner"),
+    ("Airavat AI Hackathon 2025", "IEEE CS, SPIT - Institutional", "1st Place"),
+    ("Code Crafters 2.0", "Saraswati College of Engg", "1st Place"),
+    ("Hackanova 5.0 - AIML Domain", "Thakur College - National", "1st Place"),
+    ("SPIT Hackathon 2025 - AIML", "CSI SPIT - Institutional", "1st Place"),
+    ("Genathon 2.0", "IIIT Nagpur - National", "1st Place"),
+    ("D3CODE Hackathon 2025", "UST Global - Corporate", "Runner-Up"),
+    ("LogiTHON AI Hackathon", "IIT Bombay / IEOR", "Runner-Up"),
+    ("AI-Quest", "IIT Bombay Techfest '24", "2nd Place"),
+    ("Classifi", "IIT Bombay Techfest '24", "2nd Place"),
+    ("Datathon 2025 - GenAI Track", "KJ Somaiya", "Runner-Up"),
+    ("Odoo x Gujarat Vidyapeeth", "National Hackathon 2025", "2nd Runner-Up"),
+    ("Wall Street Analytics Challenge", "BITS Pilani Hyderabad", "2nd Runner-Up"),
+    ("ML Fiesta", "IIIT Bangalore", "2nd Runner-Up"),
+    ("Technovate 2.0", "Rotaract, SPIT", "5th Place"),
+    ("Smart India Hackathon 2024", "IIT Gandhinagar - National", "Top 5 Finalist"),
 ]
+assert len(hackathons) == 17
 
-for i, (label, value) in enumerate(hackathons):
-    t.gen_text(f"{label}{value}", row_num=4 + i)
-    t.clone_frame(6)
+t.clone_frame(HOLD_FRAMES)  # hold the "17 Hackathons Won" title screen too
+t.clear_frame()
 
-t.clone_frame(15)
-t.gen_text("\x1b[96m==================\x1b[0m", row_num=4 + len(hackathons))
-t.clone_frame(35)  # hold — give the reader time on this screen
+for i, (name, venue, result) in enumerate(hackathons, start=1):
+    t.gen_text(f"\x1b[96m[{i:>2}/17]\x1b[0m", row_num=1)
+    t.gen_text(f"\x1b[97m{name}\x1b[0m", row_num=2)
+    t.gen_text(f"\x1b[94m{venue}\x1b[0m", row_num=3)
+    t.gen_text(f"\x1b[93m{result}\x1b[0m", row_num=4)
+    t.clone_frame(HOLD_FRAMES)
+    if i < len(hackathons):
+        t.clear_frame()
+
+t.clear_frame()
 
 # -- Clear + Publications --
-pub_prompt_row = 5 + len(hackathons)
+pub_prompt_row = 1
 t.gen_prompt(row_num=pub_prompt_row)
 t.gen_typing_text("clear", row_num=pub_prompt_row, contin=True, speed=1)
 t.clone_frame(5)
@@ -370,7 +391,7 @@ for i, (label, value) in enumerate(publications):
 
 t.clone_frame(15)
 t.gen_text("\x1b[96m=====================\x1b[0m", row_num=4 + len(publications))
-t.clone_frame(35)  # hold — give the reader time on this screen
+t.clone_frame(HOLD_FRAMES)  # 10s hold — same as each hackathon screen
 
 # -- Clear + Tech Stack --
 stack_prompt_row = 5 + len(publications)
