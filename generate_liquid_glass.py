@@ -293,8 +293,9 @@ t = gifos.Terminal(width=WIN_W, height=450, xpad=10, ypad=10)
 t.set_prompt(f"\x1b[91m{USERNAME}\x1b[0m@\x1b[93mgithub\x1b[0m ~> ")
 
 # gifos_settings.toml sets fps=15 (not the 20 assumed elsewhere in this file's
-# history) — HOLD_FRAMES=150 is the real "10 seconds" the pacing calls for.
-HOLD_FRAMES = 150
+# history) — 150 frames is the real "10 seconds" the pacing calls for.
+HOLD_FRAMES = 150       # publications — fewer of them, worth lingering on
+HACKATHON_HOLD = 60     # 4s — 17 screens at 10s each was too slow to sit through
 
 # -- ASCII boot banner --
 t.gen_text("+--------------------------------------+", row_num=1)
@@ -392,7 +393,7 @@ hackathons = [
 ]
 assert len(hackathons) == 17
 
-t.clone_frame(HOLD_FRAMES)  # hold the "17 Hackathons Won" title screen too
+t.clone_frame(HACKATHON_HOLD)  # hold the "17 Hackathons Won" title screen too
 t.clear_frame()
 
 for i, (name, venue, result) in enumerate(hackathons, start=1):
@@ -400,7 +401,7 @@ for i, (name, venue, result) in enumerate(hackathons, start=1):
     t.gen_text(f"\x1b[97m{name}\x1b[0m", row_num=2)
     t.gen_text(f"\x1b[94m{venue}\x1b[0m", row_num=3)
     t.gen_text(f"\x1b[93m{result}\x1b[0m", row_num=4)
-    t.clone_frame(HOLD_FRAMES)
+    t.clone_frame(HACKATHON_HOLD)
     if i < len(hackathons):
         t.clear_frame()
 
